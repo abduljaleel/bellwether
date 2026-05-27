@@ -1,13 +1,13 @@
 export const appConfig = {
-  name: "Planet Pi",
-  description: "Space is open for business. Decision-grade geospatial intelligence.",
-  url: "https://planetpi.ch",
+  name: "Bellwether",
+  description: "Digital twin of complex systems using agent swarms.",
+  url: "https://bellwether.ch",
   navItems: [
     { title: "Dashboard", href: "/dashboard", icon: "dashboard" },
-    { title: "Assets", href: "/assets", icon: "map" },
-    { title: "Anomalies", href: "/anomalies", icon: "alert" },
-    { title: "Layers", href: "/layers", icon: "globe" },
-    { title: "Risk", href: "/risk", icon: "shield" },
+    { title: "Simulations", href: "/simulations", icon: "map" },
+    { title: "Alerts", href: "/alerts", icon: "alert" },
+    { title: "Policies", href: "/policies", icon: "globe" },
+    { title: "Scenarios", href: "/scenarios", icon: "shield" },
     { title: "Reports", href: "/reports", icon: "file" },
   ],
 };
