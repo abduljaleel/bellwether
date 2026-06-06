@@ -1,341 +1,373 @@
 import Link from "next/link";
 import { appConfig } from "@/lib/config";
 
+/**
+ * BELLWETHER — THE SIMULATION
+ * Archetype: a live multi-agent simulation. Deep space-dark, cyan accents,
+ * fields of hundreds of small dots (agents) forming murmuration crescents.
+ * ALL dot positions/opacities derived deterministically from loop indices
+ * (no Math.random, no new Date at module/render scope).
+ */
+
+type Dot = { x: number; y: number; r: number; o: number; c: string };
+
+// Deterministic murmuration: place N dots, deriving x/y from index math so the
+// flock reads as a flowing crescent/cluster. Opacity & size vary by sine of i.
+function murmuration(
+  count: number,
+  opts: {
+    cx: number;
+    cy: number;
+    spread: number;
+    arc: number; // radians swept
+    twist: number; // how tightly the crescent curls
+    palette: string[];
+    accentEvery?: number; // every Nth dot uses palette[1] (the "shifted" agents)
+  }
+): Dot[] {
+  const { cx, cy, spread, arc, twist, palette, accentEvery = 0 } = opts;
+  const out: Dot[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = (i / count) * arc; // angle along the crescent
+    // radius pulses along the arc → a banded, layered flock rather than a ring
+    const band = 0.55 + 0.45 * Math.abs(Math.sin(i * 0.37));
+    const rad = spread * band;
+    // a second sine adds a curl/twist so the crescent sweeps
+    const cur = Math.sin(t * twist);
+    const x = cx + Math.cos(t) * rad + cur * spread * 0.5;
+    const y = cy + Math.sin(t) * rad * 0.62 + Math.cos(i * 0.21) * spread * 0.18;
+    const r = 0.9 + 1.6 * (0.5 + 0.5 * Math.sin(i * 0.91));
+    // density falls off toward the trailing edge of the flock
+    const o = 0.22 + 0.6 * (0.5 + 0.5 * Math.sin(i * 0.5 + 1.1));
+    const shifted = accentEvery > 0 && i % accentEvery === 0;
+    const c = shifted ? palette[1] : palette[0];
+    out.push({ x, y, r, o, c });
+  }
+  return out;
+}
+
+const CYAN = "#40c8d0";
+const VIOLET = "#8a6ad8";
+const AMBER = "#f0c050";
+const ROSE = "#ef6b85";
+const MINT = "#7adfa0";
+
 export default function LandingPage() {
-  const accent = "#40c8d0";
-  const dark = "#050a0c";
-  const surface = "#0a1416";
-  const border = "#143038";
-  const muted = "#5a7a82";
-  const text = "#d4e8ec";
+  const dark = "#070a10";
+  const panel = "#0b1018";
+  const border = "#16222c";
+  const muted = "#5d7782";
+  const text = "#cfe3e8";
 
-  // Murmuration field — many agents, three behavioral profiles
-  const swarm = Array.from({ length: 220 }).map((_, i) => {
-    // Deterministic pseudo-random distribution for SSR stability
-    const seed = (i * 9301 + 49297) % 233280;
-    const r1 = seed / 233280;
-    const r2 = ((i * 7919) % 1031) / 1031;
-    const r3 = ((i * 6151) % 997) / 997;
-
-    // Roughly form a sweeping crescent shape
-    const t = (i / 220) * Math.PI * 1.6;
-    const baseX = 50 + Math.cos(t) * 28 + (r1 - 0.5) * 14;
-    const baseY = 50 + Math.sin(t * 1.1) * 18 + (r2 - 0.5) * 14;
-    const profile = r3 < 0.12 ? "arbitrageur" : r3 < 0.55 ? "buyer" : "seller";
-    const color = profile === "arbitrageur" ? "#f0c050" : profile === "buyer" ? accent : "#8a6ad8";
-    const size = 1.4 + r1 * 1.6;
-    return { x: baseX, y: baseY, color, size, opacity: 0.35 + r2 * 0.55 };
+  // Hero flock — a few hundred agents forming a wide sweeping crescent.
+  const hero = murmuration(420, {
+    cx: 560,
+    cy: 250,
+    spread: 210,
+    arc: Math.PI * 1.55,
+    twist: 1.35,
+    palette: [CYAN, AMBER],
+    accentEvery: 11, // ~9% of agents "shifted strategy" → amber
   });
 
-  // Policy comparison cards
-  const policies = [
-    {
-      name: "Policy v1",
-      sub: "baseline",
-      outcome: "Stable",
-      detail: "Price variance ±3% over 60 days",
-      tone: text,
-      bar: 62,
-      barColor: accent,
-    },
-    {
-      name: "Policy v2",
-      sub: "tightened spread",
-      outcome: "Optimal",
-      detail: "Price variance ±2%, liquidity +14%",
-      tone: "#7adfa0",
-      bar: 88,
-      barColor: "#7adfa0",
-    },
-    {
-      name: "Policy v3",
-      sub: "dynamic fee",
-      outcome: "Collapse",
-      detail: "Phase transition on day 44, -38% volume",
-      tone: "#ef6b85",
-      bar: 22,
-      barColor: "#ef6b85",
-    },
+  // Three what-if thumbnails, each a distinct emergent shape.
+  const thumbA = murmuration(140, {
+    cx: 80,
+    cy: 80,
+    spread: 52,
+    arc: Math.PI * 2,
+    twist: 0.4,
+    palette: [MINT, MINT],
+  }); // tight ring → stable
+  const thumbB = murmuration(140, {
+    cx: 80,
+    cy: 80,
+    spread: 60,
+    arc: Math.PI * 1.2,
+    twist: 2.4,
+    palette: [ROSE, ROSE],
+  }); // torn crescent → collapse
+  const thumbC = murmuration(160, {
+    cx: 80,
+    cy: 80,
+    spread: 64,
+    arc: Math.PI * 2.6,
+    twist: 3.2,
+    palette: [AMBER, AMBER],
+  }); // unspooling spiral → runaway
+
+  const whatif = [
+    { id: "A", label: "Policy A", dots: thumbA, outcome: "stable", color: MINT, note: "equilibrium holds · ±2%" },
+    { id: "B", label: "Policy B", dots: thumbB, outcome: "collapse", color: ROSE, note: "price collapse · day 44" },
+    { id: "C", label: "Policy C", dots: thumbC, outcome: "runaway", color: AMBER, note: "feedback spiral · unbounded" },
   ];
 
   return (
-    <div className="flex min-h-screen flex-col" style={{ backgroundColor: dark, color: text }}>
-      {/* Nav */}
-      <header style={{ borderBottom: `1px solid ${border}` }}>
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            {/* Tiny bell icon */}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8">
+    <div
+      className="min-h-screen w-full overflow-hidden"
+      style={{
+        backgroundColor: dark,
+        color: text,
+        fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
+      {/* ───────── HERO: the swarm field dominates ───────── */}
+      <section className="relative" style={{ height: "min(86vh, 760px)" }}>
+        {/* full-bleed simulation field */}
+        <svg
+          viewBox="0 0 1120 520"
+          preserveAspectRatio="xMidYMid slice"
+          className="absolute inset-0 h-full w-full"
+          aria-hidden
+        >
+          <defs>
+            <radialGradient id="bwGlow" cx="50%" cy="46%" r="55%">
+              <stop offset="0%" stopColor={CYAN} stopOpacity="0.10" />
+              <stop offset="100%" stopColor={CYAN} stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <rect x="0" y="0" width="1120" height="520" fill="url(#bwGlow)" />
+          {hero.map((d, i) => (
+            <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={d.c} opacity={d.o} />
+          ))}
+        </svg>
+        {/* dark vignette so overlaid text stays legible */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(120% 90% at 18% 30%, rgba(7,10,16,0.92) 0%, rgba(7,10,16,0.55) 38%, rgba(7,10,16,0.18) 70%)",
+          }}
+        />
+
+        {/* corner brand + tiny access links (NOT centered) */}
+        <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-6 py-5 sm:px-10">
+          <div className="flex items-center gap-2.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={CYAN} strokeWidth="1.8">
               <path d="M6 17h12a2 2 0 0 0 1.8-2.9C18.7 12 18 10 18 8a6 6 0 1 0-12 0c0 2-.7 4-1.8 6.1A2 2 0 0 0 6 17z" />
               <path d="M10 21a2 2 0 0 0 4 0" />
             </svg>
-            <span className="font-semibold" style={{ color: text }}>{appConfig.name}</span>
-            <span className="text-xs font-mono hidden sm:inline" style={{ color: muted }}>
-              bellwether.ch &middot; Zurich
+            <span className="text-sm font-semibold tracking-wide">{appConfig.name}</span>
+            <span className="font-mono text-[11px]" style={{ color: muted }}>
+              Zürich
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="text-sm transition-colors" style={{ color: muted }}>
-              Sign in
+          <div className="flex items-center gap-3 font-mono text-xs">
+            <Link
+              href="/login"
+              className="rounded-sm px-2.5 py-1 transition-colors"
+              style={{ color: muted, border: `1px solid ${border}` }}
+            >
+              sign in
             </Link>
             <Link
               href="/signup"
-              className="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors"
-              style={{ border: `1px solid ${accent}`, color: accent }}
+              className="rounded-sm px-2.5 py-1 transition-colors"
+              style={{ color: CYAN, border: `1px solid ${CYAN}66` }}
             >
-              Request access
+              get started ↗
             </Link>
           </div>
         </div>
-      </header>
 
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl w-full px-6 pt-24 pb-12">
-        <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] items-center">
-          <div>
-            <p className="text-xs font-mono tracking-widest uppercase mb-6" style={{ color: accent }}>
-              Frontier / Agent-based simulation
-            </p>
-            <h1
-              className="text-7xl sm:text-8xl font-normal tracking-tight leading-[0.95]"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif', color: text }}
+        {/* overlaid statement, lower-left — not a giant centered headline */}
+        <div className="absolute bottom-10 left-6 max-w-xl sm:left-10">
+          <p className="font-mono text-[11px] tracking-[0.28em]" style={{ color: CYAN }}>
+            LIVE · 10,000 AGENTS · TICK 44
+          </p>
+          <h1
+            className="mt-3 text-3xl font-medium leading-[1.05] sm:text-5xl"
+            style={{ color: text }}
+          >
+            Ten thousand agents.
+            <br />
+            <span style={{ color: CYAN }}>One emerging answer.</span>
+          </h1>
+          <p className="mt-4 max-w-md text-sm leading-relaxed" style={{ color: muted }}>
+            {appConfig.description} You can&apos;t unit-test a market or a city — so Bellwether grows one
+            and watches it move.
+          </p>
+        </div>
+
+        {/* floating regime-shift annotation pinned into the flock */}
+        <div
+          className="absolute right-6 top-24 hidden font-mono text-[11px] sm:block"
+          style={{ color: AMBER }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: AMBER }} />
+            12% shifted strategy
+          </div>
+        </div>
+      </section>
+
+      {/* ───────── REGIME SHIFT console ───────── */}
+      <section className="mx-auto max-w-6xl px-6 pb-16 pt-14 sm:px-10">
+        <div className="grid items-stretch gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          {/* console */}
+          <div
+            className="overflow-hidden rounded-lg"
+            style={{ backgroundColor: panel, border: `1px solid ${border}` }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-2 font-mono text-[11px]"
+              style={{ borderBottom: `1px solid ${border}`, color: muted }}
             >
-              Bellwether
-            </h1>
-            <p className="mt-4 text-sm italic" style={{ color: muted, fontFamily: 'Georgia, serif' }}>
-              <em>n.</em> The lead sheep that wears the bell. The signal the flock follows.
-            </p>
-            <p className="mt-8 text-2xl font-light leading-relaxed" style={{ color: text }}>
-              Digital twin of complex systems using agent swarms.
-            </p>
-            <p className="mt-5 text-base leading-relaxed" style={{ color: muted }}>
-              You can&apos;t unit-test a market or a city. Bellwether simulates ten thousand
-              heterogeneous agents against your proposed policy, detects phase transitions
-              hours before they would happen, and tells you what to change.
-            </p>
-            <div className="mt-10 flex flex-wrap items-center gap-4">
-              <Link
-                href="/signup"
-                className="inline-flex items-center rounded-full px-7 py-3 text-base font-medium"
-                style={{ backgroundColor: accent, color: dark }}
-              >
-                Run a simulation &rarr;
-              </Link>
-              <span className="text-xs font-mono" style={{ color: muted }}>
-                From Zurich &mdash; ETH precision applied to emergent systems.
+              <span>regime-shift detector</span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: CYAN }} />
+                streaming
               </span>
             </div>
-          </div>
-
-          {/* Murmuration */}
-          <div className="relative">
-            <div
-              className="relative rounded-xl aspect-square overflow-hidden"
-              style={{ border: `1px solid ${border}`, backgroundColor: surface }}
+            <pre
+              className="overflow-x-auto px-5 py-4 font-mono text-[12.5px] leading-[1.7]"
+              style={{ color: text }}
             >
-              <div className="absolute inset-0">
-                {swarm.map((dot, i) => (
-                  <div
-                    key={i}
-                    className="absolute rounded-full"
-                    style={{
-                      left: `${dot.x}%`,
-                      top: `${dot.y}%`,
-                      width: `${dot.size}px`,
-                      height: `${dot.size}px`,
-                      backgroundColor: dot.color,
-                      opacity: dot.opacity,
-                      boxShadow: `0 0 4px ${dot.color}`,
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Overlay legend */}
-              <div
-                className="absolute bottom-3 left-3 right-3 rounded-md p-3 text-xs font-mono"
-                style={{ backgroundColor: `${dark}d0`, border: `1px solid ${border}` }}
+              <span style={{ color: muted }}>SIM:</span> marketplace pricing policy v3{"\n"}
+              <span style={{ color: muted }}>agents:</span> 10,000{" "}
+              <span style={{ color: muted }}>(buyers · sellers · arbitrageurs)</span>
+              {"\n"}
+              {"\n"}
+              <span style={{ color: MINT }}>day 1–43</span> equilibrium stable{"  "}
+              <span style={{ color: muted }}>±2%</span>
+              {"\n"}
+              <span
+                className="inline-block rounded px-1.5"
+                style={{
+                  color: dark,
+                  backgroundColor: CYAN,
+                  animation: "bwPulse 1.3s ease-in-out infinite",
+                }}
               >
-                <div className="flex justify-between" style={{ color: muted }}>
-                  <span>10,000 agents</span>
-                  <span>3 behavioral profiles</span>
-                </div>
-                <div className="mt-2 flex gap-4">
-                  <span className="flex items-center gap-1.5" style={{ color: accent }}>
-                    <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: accent }} />
-                    buyer
-                  </span>
-                  <span className="flex items-center gap-1.5" style={{ color: "#8a6ad8" }}>
-                    <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: "#8a6ad8" }} />
-                    seller
-                  </span>
-                  <span className="flex items-center gap-1.5" style={{ color: "#f0c050" }}>
-                    <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: "#f0c050" }} />
-                    arbitrageur
-                  </span>
-                </div>
-              </div>
-            </div>
+                day 44   ⚠ PHASE TRANSITION DETECTED
+              </span>
+              {"\n"}
+              {"  "}
+              <span style={{ color: muted }}>└</span> 12% of agents shifted strategy{"\n"}
+              {"  "}
+              <span style={{ color: muted }}>└</span> predicted:{" "}
+              <span style={{ color: ROSE }}>price collapse in 8h</span>
+              {"\n"}
+              {"  "}
+              <span style={{ color: muted }}>└</span> recommend:{" "}
+              <span style={{ color: CYAN }}>revert v3 → v2</span>
+            </pre>
+          </div>
+
+          {/* explainer beside console */}
+          <div className="flex flex-col justify-center gap-4">
+            <p className="font-mono text-[11px] tracking-[0.24em]" style={{ color: CYAN }}>
+              THE MAGIC
+            </p>
+            <p className="text-lg leading-relaxed" style={{ color: text }}>
+              A bellwether is the lead sheep whose bell signals the flock&apos;s move. Bellwether reads the
+              swarm and catches the <span style={{ color: CYAN }}>phase transition</span> before the system tips.
+            </p>
+            <p className="text-sm leading-relaxed" style={{ color: muted }}>
+              When a critical mass of agents quietly changes strategy, the equilibrium is already gone —
+              the price just hasn&apos;t caught up yet. We surface that moment while you can still act.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Regime shift panel */}
-      <section className="mx-auto max-w-6xl w-full px-6 pb-16">
-        <p className="text-xs font-mono tracking-widest uppercase mb-4" style={{ color: accent }}>
-          Regime shift detection
-        </p>
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ border: `1px solid ${border}`, backgroundColor: surface }}
-        >
-          <div
-            className="flex items-center justify-between px-5 py-3 text-xs font-mono"
-            style={{ borderBottom: `1px solid ${border}`, color: muted, backgroundColor: dark }}
-          >
-            <span>simulation: marketplace_pricing_policy_v3</span>
-            <span>tick 44 / 90</span>
-          </div>
-          <div className="p-6 font-mono text-sm leading-relaxed space-y-1.5">
-            <p>
-              <span style={{ color: muted }}>simulation:</span>{" "}
-              <span style={{ color: text }}>Marketplace pricing policy v3</span>
-            </p>
-            <p>
-              <span style={{ color: muted }}>agents:</span>{" "}
-              <span style={{ color: text }}>10,000 (heterogeneous: buyers, sellers, arbitrageurs)</span>
-            </p>
-
-            <div className="pt-3 mt-3" style={{ borderTop: `1px solid ${border}` }}>
-              <p style={{ color: "#7adfa0" }}>
-                days 1&ndash;43: Equilibrium stable. Price variance &plusmn;2%.
-              </p>
-              <p className="mt-3" style={{ color: "#f0b070" }}>
-                <span className="font-bold">day 44 &mdash; BELLWETHER ALERT</span> &mdash; phase transition detected
-              </p>
-              <div className="mt-2 pl-5 space-y-1" style={{ color: text }}>
-                <p>&#9492;&nbsp; 12% of agents shifted strategy</p>
-                <p>&#9492;&nbsp; predicted: price collapse in <span style={{ color: "#ef6b85" }}>8 hours</span></p>
-                <p>&#9492;&nbsp; recommendation: revert policy v3 &rarr; v2 before deployment</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Policy comparison cards */}
-      <section className="mx-auto max-w-6xl w-full px-6 pb-16">
-        <div className="flex items-baseline justify-between mb-4">
-          <p className="text-xs font-mono tracking-widest uppercase" style={{ color: accent }}>
-            What-if comparison
+      {/* ───────── WHAT-IF: three emergent shapes ───────── */}
+      <section className="mx-auto max-w-6xl px-6 pb-16 sm:px-10">
+        <div className="mb-5 flex items-baseline justify-between">
+          <p className="font-mono text-[11px] tracking-[0.24em]" style={{ color: CYAN }}>
+            WHAT-IF · 3 CANDIDATE POLICIES
           </p>
-          <span className="text-xs font-mono" style={{ color: muted }}>
-            3 candidate policies, 90-day horizon
+          <span className="font-mono text-[11px]" style={{ color: muted }}>
+            same seed · divergent futures
           </span>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {policies.map((p) => (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {whatif.map((w) => (
             <div
-              key={p.name}
-              className="rounded-xl p-5"
-              style={{ border: `1px solid ${border}`, backgroundColor: surface }}
+              key={w.id}
+              className="overflow-hidden rounded-lg"
+              style={{ backgroundColor: panel, border: `1px solid ${border}` }}
             >
-              <div className="flex items-baseline justify-between">
-                <h3
-                  className="text-2xl font-normal"
-                  style={{ fontFamily: "Georgia, serif", color: text }}
+              {/* mini swarm thumbnail */}
+              <div className="relative" style={{ backgroundColor: "#080c12" }}>
+                <svg viewBox="0 0 160 160" className="block w-full">
+                  {w.dots.map((d, i) => (
+                    <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={d.c} opacity={d.o} />
+                  ))}
+                </svg>
+                <span
+                  className="absolute right-2 top-2 rounded px-1.5 py-0.5 font-mono text-[10px]"
+                  style={{ color: w.color, backgroundColor: `${w.color}1f` }}
                 >
-                  {p.name}
-                </h3>
-                <span className="text-xs font-mono" style={{ color: muted }}>{p.sub}</span>
+                  {w.outcome}
+                </span>
               </div>
-
-              <div className="mt-5">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-mono tracking-wider uppercase" style={{ color: muted }}>
-                    Outcome
-                  </span>
-                  <span className="text-sm font-mono font-bold" style={{ color: p.tone }}>
-                    {p.outcome}
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 rounded-full" style={{ backgroundColor: border }}>
-                  <div
-                    className="h-1.5 rounded-full"
-                    style={{ width: `${p.bar}%`, backgroundColor: p.barColor }}
-                  />
-                </div>
+              <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: `1px solid ${border}` }}>
+                <span className="text-sm font-medium" style={{ color: text }}>
+                  {w.label}
+                </span>
+                <span className="font-mono text-[11px]" style={{ color: muted }}>
+                  {w.note}
+                </span>
               </div>
-
-              <p className="mt-5 text-sm" style={{ color: text }}>{p.detail}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Stats */}
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {[
-            { label: "Agents per simulation", value: "10,000" },
-            { label: "Phase transitions detected in advance", value: "6 hours" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="rounded-lg px-5 py-6 flex items-baseline justify-between"
-              style={{ border: `1px solid ${border}`, backgroundColor: surface }}
-            >
-              <p className="text-xs font-mono tracking-wider uppercase" style={{ color: muted }}>
-                {s.label}
-              </p>
-              <p
-                className="text-3xl font-normal"
-                style={{ fontFamily: "Georgia, serif", color: accent }}
-              >
-                {s.value}
-              </p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="mx-auto max-w-3xl w-full px-6 pb-24 text-center">
-        <h2
-          className="text-4xl sm:text-5xl font-normal leading-tight"
-          style={{ fontFamily: "Georgia, serif", color: text }}
+      {/* ───────── quiet stats line ───────── */}
+      <section className="mx-auto max-w-6xl px-6 pb-20 sm:px-10">
+        <div
+          className="flex flex-col items-center justify-between gap-4 rounded-lg px-6 py-5 font-mono text-[12px] sm:flex-row"
+          style={{ border: `1px solid ${border}`, color: muted }}
         >
-          Stress-test the policy before the market does.
-        </h2>
-        <p className="mt-5 text-base" style={{ color: muted }}>
-          Marketplaces, supply chains, cities, networks. If it has agents and feedback, Bellwether can simulate it.
-        </p>
-        <div className="mt-8 flex justify-center">
+          <span>
+            <span style={{ color: CYAN }}>10,000</span> agents / sim
+          </span>
+          <span className="hidden sm:inline" style={{ color: border }}>
+            ·
+          </span>
+          <span>
+            phase shifts caught <span style={{ color: CYAN }}>6h</span> early
+          </span>
+          <span className="hidden sm:inline" style={{ color: border }}>
+            ·
+          </span>
+          <span>
+            <span style={{ color: CYAN }}>220</span> scenarios / run
+          </span>
           <Link
             href="/signup"
-            className="inline-flex items-center rounded-full px-8 py-3 text-base font-medium"
-            style={{ backgroundColor: accent, color: dark }}
+            className="rounded-sm px-3 py-1.5 transition-colors"
+            style={{ color: dark, backgroundColor: CYAN }}
           >
-            Run a simulation &rarr;
+            run a simulation ↗
           </Link>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ───────── Footer ───────── */}
       <footer style={{ borderTop: `1px solid ${border}` }}>
-        <div className="mx-auto flex flex-col sm:flex-row gap-3 max-w-6xl items-center justify-between px-6 py-6 text-xs font-mono">
-          <span style={{ color: muted }}>
-            {appConfig.name} &middot; Zurich &middot; &copy; {new Date().getFullYear()}
-          </span>
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-6 font-mono text-[11px] sm:flex-row sm:px-10">
+          <span style={{ color: muted }}>{appConfig.name} · Zürich</span>
           <a
             href="https://abduljaleel.xyz/aletheia/"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 transition-colors"
-            style={{ border: `1px solid ${border}`, color: accent }}
+            className="rounded-sm px-3 py-1.5 transition-colors"
+            style={{ color: muted, border: `1px solid ${border}` }}
           >
-            PART OF THE ALETHEIA STACK &#8599;
+            Part of the Aletheia stack ↗
           </a>
         </div>
       </footer>
+
+      <style>{`
+        @keyframes bwPulse {
+          0%, 100% { filter: brightness(1); }
+          50% { filter: brightness(1.55); }
+        }
+      `}</style>
     </div>
   );
 }
