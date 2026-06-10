@@ -4,10 +4,10 @@ export const appConfig = {
   url: "https://bellwether.ch",
   navItems: [
     { title: "Dashboard", href: "/dashboard", icon: "dashboard" },
-    { title: "Simulations", href: "/simulations", icon: "map" },
-    { title: "Alerts", href: "/alerts", icon: "alert" },
-    { title: "Policies", href: "/policies", icon: "globe" },
-    { title: "Scenarios", href: "/scenarios", icon: "shield" },
+    { title: "Assets", href: "/assets", icon: "map" },
+    { title: "Anomalies", href: "/anomalies", icon: "alert" },
+    { title: "Layers", href: "/layers", icon: "globe" },
+    { title: "Risk", href: "/risk", icon: "shield" },
     { title: "Reports", href: "/reports", icon: "file" },
   ],
 };
