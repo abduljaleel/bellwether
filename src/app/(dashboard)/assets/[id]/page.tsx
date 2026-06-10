@@ -1,33 +1,85 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  getAssetById,
-  getEventsForAsset,
-  getRiskForAsset,
   getRiskBadgeVariant,
-  getRiskColor,
   getSeverityColor,
   formatDate,
+  type Asset,
+  type AnomalyEvent,
+  type RiskAssessment,
 } from "@/lib/data/geospatial";
+import {
+  getAsset,
+  listAnomaliesForAsset,
+  getLatestRiskForAsset,
+} from "@/lib/data/api";
 
 export default function AssetDetailPage() {
   const params = useParams();
   const assetId = params.id as string;
-  const asset = getAssetById(assetId);
-  const events = getEventsForAsset(assetId);
-  const risk = getRiskForAsset(assetId);
+
+  const [asset, setAsset] = useState<Asset | null>(null);
+  const [events, setEvents] = useState<AnomalyEvent[]>([]);
+  const [risk, setRisk] = useState<RiskAssessment | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!assetId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [a, e, r] = await Promise.all([
+          getAsset(assetId),
+          listAnomaliesForAsset(assetId),
+          getLatestRiskForAsset(assetId),
+        ]);
+        if (cancelled) return;
+        setAsset(a);
+        setEvents(e);
+        setRisk(r);
+      } catch (err) {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : "Failed to load asset");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assetId]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-72" />
+        <div className="grid gap-4 md:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Asset</h1>
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      </div>
+    );
+  }
 
   if (!asset) {
     return (
@@ -214,7 +266,10 @@ export default function AssetDetailPage() {
                         <p className="text-sm">{event.description}</p>
                         <p className="text-xs text-muted-foreground mt-1">
                           Source: {event.source} &middot; Confidence:{" "}
-                          {event.confidence}% &middot; Area: {event.affectedArea}
+                          {event.confidence}%
+                          {event.affectedArea && (
+                            <> &middot; Area: {event.affectedArea}</>
+                          )}
                         </p>
                       </div>
                     ))}
